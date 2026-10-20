@@ -1,16 +1,17 @@
 const Cliente = require('../models/Cliente')
+const CryptoJS = require('crypto-js')
 const CHAVE_SECRETA = 'segredo'
 
 const cadastrar = async (req, res) => {
     const valores = req.body
 
     if (!valores.nome || !valores.email || !valores.senha || !valores.CPF || !valores.endereco || !valores.telefone) {
-        return res.status(404).json({ message: 'Preencha todos os campos!' })
+        return res.status(422).json({ message: 'Preencha todos os campos!' })
     }
 
     try {
-        const senha = CryptoJS.AES.encrypt(valores.senha, CHAVE_SECRETA);
-        const CPF = CryptoJS.AES.encrypt(valores.CPF, CHAVE_SECRETA);
+        const senha = CryptoJS.AES.encrypt(valores.senha, CHAVE_SECRETA).toString()
+        const CPF = CryptoJS.AES.encrypt(valores.CPF, CHAVE_SECRETA).toString()
 
         await Cliente.create({
             nome: valores.nome,
@@ -23,7 +24,7 @@ const cadastrar = async (req, res) => {
         return res.status(201).json({ message: 'Cliente cadastrado com sucesso!' })
     } catch (err) {
         console.error('Houve um problema ao cadastrar o usuário!', err)
-        return res.status(201).json({ message: 'Houve um problema ao cadastrar o usuário!' })
+        return res.status(500).json({ message: 'Houve um problema ao cadastrar o usuário!' })
     }
 }
 
@@ -52,7 +53,7 @@ const listar = async (req, res) => {
         return res.status(201).json(resultado)
     } catch (err) {
         console.error('Houve um problema ao listar os Clientes!', err)
-        return res.status(201).json({ message: 'Houve um problema ao listar os Clientes!' })
+        return res.status(500).json({ message: 'Houve um problema ao listar os Clientes!' })
     }
 }
 
@@ -78,7 +79,7 @@ const consultar = async (req, res) => {
         })
     } catch (err) {
         console.error('Houve um problema ao consultar o Cliente!', err)
-        return res.status(201).json({ message: 'Houve um problema ao consultar o Cliente!' })
+        return res.status(500).json({ message: 'Houve um problema ao consultar o Cliente!' })
     }
 }
 
@@ -86,28 +87,30 @@ const atualizar = async (req, res) => {
     const valores = req.body
     const id = req.params.id
 
-    if (!valores.nome || !valores.email || !valores.senha || !valores.CPF || !valores.endereco || !valores.telefone) {
-        return res.status(404).json({ message: 'Preencha todos os campos!' })
-    }
-
     try {
-        const senha = CryptoJS.AES.encrypt(valores.senha, CHAVE_SECRETA);
-        const CPF = CryptoJS.AES.encrypt(valores.CPF, CHAVE_SECRETA);
-
-        const valores2 = {
-            nome: valores.nome,
-            email: valores.email,
-            senha: senha,
-            CPF: CPF,
-            endereco: valores.endereco,
-            telefone: valores.telefone,
+        const cliente = Cliente.findByPk(id)
+        if(!cliente){
+            return res.status(404).json({ message: 'Não foi possível achar o cliente!' })
+        }
+        
+        const dados = { ... valores}
+        
+        if(valores.CPF){
+            if(valores.CPF.length > 11 || valores.CPF.length < 11){
+                return res.status(422).json({ message: 'O CPF deve conter exatamente 11 caracteres!' })
+            }
+            dados.CPF = CryptoJS.AES.encrypt(valores.CPF, CHAVE_SECRETA).toString()
         }
 
-        await Cliente.update(valores2, { where: { codCliente: id } })
+        if(valores.senha){
+            dados.senha = CryptoJS.AES.encrypt(valores.senha, CHAVE_SECRETA).toString()
+        }
+
+        await Cliente.update(dados, { where: { codCliente: id } })
         return res.status(201).json({ message: 'Cliente atualizado com sucesso!' })
     } catch (err) {
         console.error('Houve um problema ao cadastrar o Cliente!', err)
-        return res.status(201).json({ message: 'Houve um problema ao atualizado o Cliente!' })
+        return res.status(500).json({ message: 'Houve um problema ao atualizado o Cliente!' })
     }
 }
 
@@ -121,11 +124,11 @@ const apagar = async (req, res) => {
             return res.status(404).json({ message: 'O cliente não foi encontrado!' })
         }
 
-        await cliente.destroy({ where: { codCliente: id } })
+        await Cliente.destroy({ where: { codCliente: id } })
         return res.status(201).json({ message: 'Cliente apagado com sucesso!' })
     } catch (err) {
         console.error('Houve um problema ao consultar o usuário!', err)
-        return res.status(201).json({ message: 'Houve um problema ao consultar o Cliente!' })
+        return res.status(500).json({ message: 'Houve um problema ao consultar o Cliente!' })
     }
 }
 
